@@ -1,0 +1,74 @@
+clc, clear, close all 
+
+%%
+file = 'ATKCA101.mat';
+load(file)
+
+%% 
+
+% Parameters 
+bins = 15;
+smoothVal = 1.5;
+numDays = numel(trace);
+
+
+% 4D matrix to store rate maps
+numCells = size(trace{1}, 1); % Number of cells
+rateMaps = zeros(bins, bins, numCells, numDays);
+
+for day = 1:numDays
+    path = position{day}; % path for current day
+    t1 = trace{day}; % trace for current day
+
+    % Generate Maps
+    rateMaps(:,:,:,day) = get_Maps(path,t1,bins,smoothVal);
+end
+
+%% Mean activity check
+check = zeros(numCells, numDays); % initialized as zeros of cells x days
+
+for day = 1:numDays
+    t2 = trace{day}; % calcium trace data for current day
+    check(:, day) = mean(t2, 2); % calculates mean acitivity / cell
+end
+
+close all;
+imagesc(check);
+
+%% Identifying active cells
+isActive = ~isnan(check); % A 243 x 9 logical; Which cell is active for which day?
+daysActive = sum(isActive, 2); % 243 x 1 double; How many days is each cell active?
+
+%% Visualizing activity for specific cell across all days
+doCell = 2;
+figure;
+set(gcf, 'position', [0 0 1200 600]);
+for day = 1:numDays
+    subplot(2, 5, day);
+    imagesc(rateMaps(:, :, doCell, day)); % Display the rate map
+    axis square;
+    axis off;
+    title(['Day: ' num2str(day)]);
+end
+
+%% Correlation analysis
+forCorr = zeros(bins * bins, numDays);
+correlationsForAllCells = zeros(numDays, numDays, numCells);
+
+for doCell = 1:numCells
+    for day = 1:numDays 
+        takeMap = rateMaps(:, :, doCell, day);
+        forCorr(:, day) = takeMap(:);
+    end
+    correlationsForAllCells(:, :, doCell) = corr(forCorr);
+end
+
+final = nanmean(correlationsForAllCells, 3);
+final(1:numel(final(1, :)) + 1:end) = NaN;
+figure;
+imagesc(final);
+colorbar;
+title('Mean Correlation of Activity Maps Across Days');
+
+
+
